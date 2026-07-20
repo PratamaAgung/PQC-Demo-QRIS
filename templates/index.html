@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — QRIS Quantum Demo{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  .hero {
+    background: linear-gradient(135deg, var(--mandiri-navy) 0%, #00306A 60%, #00254F 100%);
+    border-radius: 20px; padding: 40px 36px; color: white;
+    margin-bottom: 24px; position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ''; position: absolute; right: -40px; top: -40px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: rgba(245,166,35,.08); pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(245,166,35,.15); border: 1px solid rgba(245,166,35,.3);
+    color: var(--mandiri-gold); border-radius: 20px;
+    padding: 4px 12px; font-size: 11px; font-weight: 600;
+    letter-spacing: .5px; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 10px; }
+  .hero p { font-size: 14px; color: rgba(255,255,255,.7); max-width: 600px; line-height: 1.6; }
+  .flow-diagram {
+    display: flex; align-items: center; gap: 0;
+    margin: 28px 0;
+  }
+  .flow-node {
+    flex: 1; background: white; border-radius: 14px;
+    padding: 18px 14px; text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    transition: transform .2s;
+  }
+  .flow-node:hover { transform: translateY(-3px); }
+  .flow-node-icon { font-size: 28px; margin-bottom: 8px; }
+  .flow-node-title { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+  .flow-node-sub   { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+  .flow-arrow {
+    flex-shrink: 0; padding: 0 8px;
+    font-size: 18px; color: var(--gray-400);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .flow-arrow.attack { color: var(--danger-red); }
+  .flow-arrow-label { font-size: 9px; color: var(--danger-red); font-weight: 600; letter-spacing: .5px; }
+  .entity-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .entity-card {
+    border-radius: 14px; padding: 20px; text-decoration: none;
+    transition: transform .2s, box-shadow .2s; display: block;
+  }
+  .entity-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .entity-card.bank     { background: linear-gradient(135deg, var(--mandiri-navy), #0055AA); color: white; }
+  .entity-card.attacker { background: linear-gradient(135deg, #8B0000, #C62828); color: white; }
+  .entity-card.mbanking { background: linear-gradient(135deg, #1A7F4E, #2E9E63); color: white; }
+  .entity-card-num { font-size: 11px; opacity: .65; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .entity-card-icon { font-size: 32px; margin-bottom: 10px; }
+  .entity-card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .entity-card-desc  { font-size: 12px; opacity: .75; line-height: 1.5; }
+  .entity-card-btn {
+    margin-top: 16px; background: rgba(255,255,255,.2);
+    border: 1px solid rgba(255,255,255,.3); color: white;
+    padding: 7px 16px; border-radius: 8px; font-size: 12px;
+    font-weight: 600; cursor: pointer; display: inline-block;
+    text-decoration: none;
+  }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    background: white; border-radius: 12px; padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .stat-label { font-size: 11px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+  .stat-value.navy  { color: var(--mandiri-navy); }
+  .stat-value.green { color: var(--success-green); }
+  .stat-value.red   { color: var(--danger-red); }
+  .stat-value.gold  { color: var(--mandiri-amber); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">⚛️ QUANTUM THREAT AWARENESS</div>
+  <h1>QRIS & Ancaman Komputer Kuantum<br>Simulasi Serangan MitM + Quantum Forge</h1>
+  <p>Demo interaktif ini mensimulasikan bagaimana komputer kuantum masa depan dapat membobol sistem kriptografi RSA yang melindungi QRIS Dinamis saat ini — dan mengapa migrasi ke Post-Quantum Cryptography (PQC) sangat kritis.</p>
+</div>
+
+<!-- FLOW DIAGRAM -->
+<div class="card" style="margin-bottom:24px;">
+  <div class="card-header">
+    <div class="card-icon blue">🔄</div>
+    <div><div class="card-title">Alur Serangan Man-in-the-Middle + Quantum Forge</div>
+    <div class="card-sub">Ikuti langkah dari kiri ke kanan</div></div>
+  </div>
+  <div class="card-body">
+    <div class="flow-diagram">
+      <div class="flow-node">
+        <div class="flow-node-icon">🏦</div>
+        <div class="flow-node-title">Bank / Kasir</div>
+        <div class="flow-node-sub">Generate QRIS<br>+ RSA-52bit</div>
+      </div>
+      <div class="flow-arrow attack">
+        ⚡<br>
+        <div class="flow-arrow-label">INTERCEPT</div>
+      </div>
+      <div class="flow-node" style="border: 2px solid #FDECEA;">
+        <div class="flow-node-icon">☠️</div>
+        <div class="flow-node-title">MitM Attacker</div>
+        <div class="flow-node-sub">Harvest → Crack<br>→ Forge QRIS</div>
+      </div>
+      <div class="flow-arrow attack">
+        ⚡<br>
+        <div class="flow-arrow-label">FORWARD</div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-node-icon">🖥️</div>
+        <div class="flow-node-title">Layar Kasir</div>
+        <div class="flow-node-sub">Tampilkan QR<br>(sudah dipalsu)</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">📱</div>
+        <div class="flow-node-title">M-Banking</div>
+        <div class="flow-node-sub">Scan → Verify<br>→ Bayar</div>
+      </div>
+      <div class="flow-arrow attack">
+        💸<br>
+        <div class="flow-arrow-label">DANA DICURI</div>
+      </div>
+      <div class="flow-node" style="border: 2px solid #FDECEA;">
+        <div class="flow-node-icon">💀</div>
+        <div class="flow-node-title">Rekening Penipu</div>
+        <div class="flow-node-sub">Dana masuk<br>ke attacker</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STAT ROW (live) -->
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-label">Saldo Nasabah</div>
+    <div class="stat-value navy" id="stat-customer">Rp 500.000</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Dana ke Merchant Sah</div>
+    <div class="stat-value green" id="stat-legit">Rp 0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Dana ke Penipu</div>
+    <div class="stat-value red" id="stat-attacker">Rp 0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Status Demo</div>
+    <div class="stat-value gold" id="stat-phase">Idle</div>
+  </div>
+</div>
+
+<!-- ENTITY CARDS -->
+<div class="entity-cards">
+  <a href="/kasir" class="entity-card bank">
+    <div class="entity-card-num">Entitas 01</div>
+    <div class="entity-card-icon">🏪</div>
+    <div class="entity-card-title">Server Bank & Kasir</div>
+    <div class="entity-card-desc">Inisialisasi kunci RSA-52bit, input nominal, dan generate QRIS EMVCo yang ditandatangani digital.</div>
+    <div class="entity-card-btn">Buka Kasir →</div>
+  </a>
+  <a href="/attacker" class="entity-card attacker">
+    <div class="entity-card-num">Entitas 02</div>
+    <div class="entity-card-icon">☠️</div>
+    <div class="entity-card-title">MitM Attacker</div>
+    <div class="entity-card-desc">Intersep QRIS, jalankan Shor's Algorithm, crack kunci privat, forge QRIS palsu, dan forward ke kasir.</div>
+    <div class="entity-card-btn">Buka Terminal Penyusup →</div>
+  </a>
+  <a href="/mbanking" class="entity-card mbanking">
+    <div class="entity-card-num">Entitas 03</div>
+    <div class="entity-card-icon">📱</div>
+    <div class="entity-card-title">M-Banking Customer</div>
+    <div class="entity-card-desc">Scan QRIS, verifikasi signature RSA, lihat bagaimana verifikasi LULUS meski QRIS sudah dipalsukan.</div>
+    <div class="entity-card-btn">Buka M-Banking →</div>
+  </a>
+</div>
+
+<!-- LOG TERMINAL -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-icon blue">🖥️</div>
+    <div><div class="card-title">Live System Log</div>
+    <div class="card-sub">Log real-time dari semua entitas</div></div>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-outline btn-sm" onclick="resetDemo()">🔄 Reset Demo</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="terminal" id="terminal-main">
+      <div class="log-info">Selamat datang di QRIS Quantum Threat Demo.</div>
+      <div class="log-info">Mulai dari tab <strong>Kasir</strong>, lalu <strong>Attacker</strong>, lalu <strong>M-Banking</strong>.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function pollState() {
+    fetch('/api/state').then(r=>r.json()).then(d=>{
+      document.getElementById('stat-customer').textContent = formatRp(d.balance_customer);
+      document.getElementById('stat-legit').textContent    = formatRp(d.balance_legit);
+      document.getElementById('stat-attacker').textContent = formatRp(d.balance_attacker);
+      const phases = {idle:'Idle',generated:'QRIS Dibuat',harvested:'Dipanen Attacker',
+        cracked:'Kunci Bocor!',forged:'QRIS Dipalsukan',paid:'Transaksi Selesai'};
+      document.getElementById('stat-phase').textContent = phases[d.phase] || d.phase;
+      renderLog(d.attack_log, 'terminal-main');
+    });
+  }
+  function resetDemo() {
+    if (!confirm('Reset semua state demo?')) return;
+    fetch('/api/reset',{method:'POST'}).then(()=>pollState());
+  }
+  pollState();
+  setInterval(pollState, 1500);
+</script>
+{% endblock %}

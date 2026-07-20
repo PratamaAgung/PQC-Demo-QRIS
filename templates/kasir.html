@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Kasir — Server Bank{% endblock %}
+{% block nav_kasir %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  .kasir-header {
+    background: linear-gradient(135deg, var(--mandiri-navy), #0055AA);
+    border-radius: 16px; padding: 24px; color: white; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .kasir-header-icon {
+    width: 56px; height: 56px; background: rgba(255,255,255,.15);
+    border-radius: 14px; display: flex; align-items: center;
+    justify-content: center; font-size: 26px; flex-shrink: 0;
+  }
+  .qris-preview { text-align: center; padding: 20px 0; }
+  .qris-string-box {
+    background: #0D1117; border-radius: 10px; padding: 12px;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    color: #56D364; word-break: break-all; max-height: 100px;
+    overflow-y: auto; text-align: left; margin-top: 12px;
+  }
+  .nominal-input-wrap { position: relative; }
+  .nominal-input-wrap::before {
+    content: 'Rp'; position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); color: var(--gray-400);
+    font-weight: 600; font-size: 14px; pointer-events: none;
+  }
+  .nominal-input-wrap input { padding-left: 38px !important; }
+  .mitm-overlay { position: relative; display: inline-block; }
+  .mitm-badge {
+    display: none; position: absolute; top: -10px; right: -10px;
+    background: var(--danger-red); color: white; border-radius: 6px;
+    padding: 3px 8px; font-size: 10px; font-weight: 700;
+    animation: pulse 1s infinite; z-index: 2;
+  }
+  .mitm-badge.show { display: block; }
+  .qr-action-row {
+    display: flex; gap: 8px; justify-content: center; margin-top: 14px;
+  }
+  .btn-icon {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 10px;
+    font-family: var(--font-main); font-size: 12px; font-weight: 600;
+    cursor: pointer; border: none; text-decoration: none;
+    transition: all .18s;
+  }
+  .btn-icon.download {
+    background: var(--mandiri-light); color: var(--mandiri-navy);
+    border: 1.5px solid rgba(0,63,127,.2);
+  }
+  .btn-icon.download:hover { background: #d0e4f7; }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .status-chip.online { background: #E8F5EE; color: #1A7F4E; }
+  .status-chip.attacked { background: #FDECEA; color: #C62828; animation: pulse 1.5s infinite; }
+  .nominal-presets {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+  }
+  .preset-btn {
+    padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1.5px solid var(--gray-200); background: white; cursor: pointer;
+    color: var(--gray-700); transition: all .15s;
+  }
+  .preset-btn:hover { border-color: var(--mandiri-blue); color: var(--mandiri-blue); background: var(--mandiri-light); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HEADER -->
+<div class="kasir-header">
+  <div class="kasir-header-icon">🏪</div>
+  <div>
+    <div style="font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Entitas 01</div>
+    <div style="font-size:20px;font-weight:800;margin:3px 0;">Kasir — Kopi Gembira</div>
+    <div style="font-size:13px;opacity:.75;">Kelapa Gading, Jakarta Utara</div>
+  </div>
+  <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+    <div id="server-status" class="status-chip online">● Server Online</div>
+    <div style="font-size:11px;opacity:.5;font-family:'Courier New',monospace;">KSR-001 / RSA-AKTIF</div>
+  </div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+  <!-- KIRI: Input Form -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon gold">💰</div>
+        <div>
+          <div class="card-title">Input Transaksi</div>
+          <div class="card-sub">Masukkan nominal & generate QRIS</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Nama Merchant</label>
+          <input type="text" class="form-control" value="Kopi Gembira" disabled />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Merchant ID</label>
+          <input type="text" class="form-control" value="ID.KOPIGEMBIRA.001" disabled />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nominal Pembayaran</label>
+          <div class="nominal-input-wrap">
+            <input type="number" class="form-control" id="input-nominal"
+              value="150000" min="1000" step="1000" />
+          </div>
+          <div class="nominal-presets">
+            <button class="preset-btn" onclick="setNominal(25000)">Rp 25.000</button>
+            <button class="preset-btn" onclick="setNominal(50000)">Rp 50.000</button>
+            <button class="preset-btn" onclick="setNominal(150000)">Rp 150.000</button>
+            <button class="preset-btn" onclick="setNominal(350000)">Rp 350.000</button>
+          </div>
+        </div>
+        <button class="btn btn-gold btn-full" id="btn-generate" onclick="generateQRIS()">
+          📲 Generate QRIS
+        </button>
+      </div>
+    </div>
+
+    <!-- Log Server Bank -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">🖥️</div>
+        <div><div class="card-title">Log Server Bank</div>
+        <div class="card-sub">Aktivitas signing & QRIS generation</div></div>
+      </div>
+      <div class="card-body">
+        <div class="terminal" id="terminal-kasir">
+          <div class="log-info">Server Bank aktif. RSA keypair sudah di-load.</div>
+          <div class="log-info">Menunggu transaksi dari kasir...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KANAN: Layar QR -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon gold">📲</div>
+        <div>
+          <div class="card-title">Layar Kasir — QR Code Aktif</div>
+          <div class="card-sub" id="qr-status-sub">Menunggu QRIS dibuat...</div>
+        </div>
+        <div id="mitm-alert" class="hidden" style="margin-left:auto;">
+          <span class="badge badge-danger pulse">⚠️ DISERANG</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="qris-preview">
+          <!-- Placeholder -->
+          <div id="qr-placeholder" style="width:196px;height:196px;background:var(--gray-100);
+            border-radius:14px;display:flex;align-items:center;justify-content:center;
+            flex-direction:column;gap:8px;color:var(--gray-400);margin:0 auto;">
+            <div style="font-size:36px;">📱</div>
+            <div style="font-size:12px;">QR Code muncul di sini</div>
+          </div>
+
+          <!-- QR Image -->
+          <div id="qr-image-wrap" class="hidden">
+            <div class="mitm-overlay" style="display:inline-block;">
+              <div id="mitm-badge" class="mitm-badge">DIPALSUKAN!</div>
+              <div class="qr-wrapper">
+                <img id="qr-image" src="" alt="QRIS QR Code"
+                  style="width:180px;height:180px;display:block;" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Info nominala -->
+          <div style="margin-top:14px;" id="qr-info" class="hidden">
+            <div class="amount-label">Total Pembayaran</div>
+            <div class="amount-big" id="qr-nominal">—</div>
+            <div style="font-size:12px;color:var(--gray-400);margin-top:4px;" id="qr-merchant">—</div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="qr-action-row" id="qr-actions" style="display:none;">
+            <a href="/api/qris-png" class="btn-icon download" id="btn-download" download>
+              ⬇️ Download QR
+            </a>
+            <button class="btn-icon download" onclick="generateQRIS()" id="btn-regen">
+              🔄 Regenerate
+            </button>
+          </div>
+        </div>
+
+        <!-- Raw QRIS String -->
+        <div id="qr-string-section" class="hidden">
+          <div class="divider"></div>
+          <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px;display:flex;
+            align-items:center;justify-content:space-between;">
+            <span>📄 Raw QRIS String (Format EMVCo)</span>
+            <button class="btn-icon download" style="padding:3px 10px;font-size:10px;"
+              onclick="copyRaw()">📋 Copy</button>
+          </div>
+          <div class="qris-string-box" id="qris-raw">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function setNominal(val) {
+    document.getElementById('input-nominal').value = val;
+  }
+
+  function generateQRIS() {
+    const nominal = parseInt(document.getElementById('input-nominal').value);
+    if (!nominal || nominal < 1000) { alert('Masukkan nominal yang valid (min Rp 1.000).'); return; }
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Membuat QRIS...';
+
+    fetch('/api/generate-qris', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({nominal})
+    }).then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') { alert(d.message); btn.disabled=false; btn.innerHTML='📲 Generate QRIS'; return; }
+      btn.disabled = false;
+      btn.innerHTML = '📲 Generate QRIS Baru';
+      // is_forged dari server: jika attack aktif, server sudah return forged QRIS
+      showQR(d.qr_image, d.merchant_name, d.nominal, d.qris_string, d.is_forged === true);
+    });
+  }
+
+  function showQR(img_b64, merchant, nominal, raw, is_forged) {
+    document.getElementById('qr-placeholder').classList.add('hidden');
+    document.getElementById('qr-image-wrap').classList.remove('hidden');
+    document.getElementById('qr-info').classList.remove('hidden');
+    document.getElementById('qr-string-section').classList.remove('hidden');
+    document.getElementById('qr-actions').style.display = 'flex';
+
+    document.getElementById('qr-image').src = 'data:image/png;base64,' + img_b64;
+    document.getElementById('qr-nominal').textContent = formatRp(nominal);
+    document.getElementById('qr-merchant').textContent = '🏪 ' + merchant;
+    document.getElementById('qris-raw').textContent = raw;
+
+    if (is_forged) {
+      document.getElementById('mitm-badge').classList.add('show');
+      document.getElementById('mitm-alert').classList.remove('hidden');
+      document.getElementById('qr-status-sub').textContent = '⚠️ QRIS TELAH DIMANIPULASI ATTACKER!';
+      document.getElementById('qr-status-sub').style.color = 'var(--danger-red)';
+      document.getElementById('server-status').className = 'status-chip attacked';
+      document.getElementById('server-status').textContent = '⚠️ Under Attack';
+    } else {
+      document.getElementById('mitm-badge').classList.remove('show');
+      document.getElementById('mitm-alert').classList.add('hidden');
+      document.getElementById('qr-status-sub').textContent = 'QR Code siap dipindai nasabah';
+      document.getElementById('qr-status-sub').style.color = '';
+      document.getElementById('server-status').className = 'status-chip online';
+      document.getElementById('server-status').textContent = '● Server Online';
+    }
+  }
+
+  function copyRaw() {
+    const txt = document.getElementById('qris-raw').textContent;
+    navigator.clipboard.writeText(txt).then(()=>{
+      const btn = event.target;
+      btn.textContent = '✅ Copied!';
+      setTimeout(()=>btn.textContent='📋 Copy', 1500);
+    });
+  }
+
+  let lastIsForged = null;
+  function pollKasir() {
+    fetch('/api/kasir-qris').then(r=>r.json()).then(d=>{
+      if (d.status === 'ok') {
+        // Hanya update jika status forged berubah atau ini pertama kali
+        if (lastIsForged !== d.is_forged) {
+          lastIsForged = d.is_forged;
+          showQR(d.qr_image, d.merchant_name, d.nominal, d.qris_string, d.is_forged);
+        }
+      }
+    });
+    fetch('/api/state').then(r=>r.json()).then(d=>{
+      const logs = d.attack_log.filter(l=>l.entity==='BANK'||l.entity==='SYSTEM');
+      renderLog(logs, 'terminal-kasir');
+    });
+  }
+  setInterval(pollKasir, 2000);
+  pollKasir();
+</script>
+{% endblock %}

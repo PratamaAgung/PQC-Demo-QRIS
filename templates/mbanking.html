@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+{% block title %}M-Banking — Simulator Pemindai{% endblock %}
+{% block nav_mbanking %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  .phone-outer {
+    width: 340px; margin: 0 auto;
+    background: #111; border-radius: 44px; padding: 14px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5), 0 0 0 2px #2A2A2A;
+  }
+  .phone-screen {
+    background: #fff; border-radius: 32px; overflow: hidden; min-height: 640px;
+  }
+  .phone-statusbar {
+    background: var(--mandiri-navy); color: white;
+    padding: 10px 22px 8px; display: flex; justify-content: space-between; font-size: 10px;
+  }
+  .phone-topbar {
+    background: var(--mandiri-navy); color: white; padding: 10px 20px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .phone-topbar-back { font-size: 18px; cursor:pointer; opacity:.7; }
+  .phone-topbar-info { flex:1; }
+  .phone-topbar-title { font-size: 14px; font-weight: 700; }
+  .phone-topbar-sub   { font-size: 10px; opacity: .6; margin-top:1px; }
+  .phone-body { padding: 16px; }
+
+  /* Balance */
+  .balance-card {
+    background: linear-gradient(135deg, var(--mandiri-navy), #0055AA);
+    border-radius: 16px; padding: 16px; color: white; margin-bottom: 16px;
+  }
+  .balance-lbl { font-size: 10px; opacity:.6; text-transform:uppercase; letter-spacing:1px; }
+  .balance-amt { font-size: 26px; font-weight: 800; margin: 4px 0; }
+  .balance-acct { font-size: 10px; opacity:.55; }
+
+  /* Scan UI */
+  .scan-modes { display:flex; gap:8px; margin-bottom:14px; }
+  .scan-mode-btn {
+    flex:1; padding:9px; border-radius:10px; border:1.5px solid var(--gray-200);
+    background:white; font-size:12px; font-weight:600; cursor:pointer;
+    color:var(--gray-700); transition:all .15s; text-align:center;
+  }
+  .scan-mode-btn.active {
+    border-color: var(--mandiri-blue); background: var(--mandiri-light); color: var(--mandiri-navy);
+  }
+
+  /* Camera viewfinder */
+  .viewfinder-wrap {
+    border-radius: 14px; overflow: hidden; position: relative;
+    background: #000; margin-bottom: 12px;
+  }
+  #camera-video { width: 100%; display: block; border-radius: 14px; }
+  .viewfinder-overlay {
+    position: absolute; inset: 0; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .viewfinder-corner {
+    width: 80px; height: 80px; border: 3px solid var(--mandiri-gold);
+    border-radius: 8px; box-shadow: 0 0 0 1000px rgba(0,0,0,.3);
+  }
+  @keyframes scanLine { 0%{top:12%} 100%{top:82%} }
+  .scan-line {
+    position: absolute; left: 10%; right: 10%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--mandiri-gold), transparent);
+    animation: scanLine 1.8s ease-in-out infinite alternate;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--gray-200); border-radius: 14px;
+    padding: 24px; text-align: center; cursor: pointer; margin-bottom: 12px;
+    transition: all .2s; background: var(--gray-100);
+  }
+  .upload-zone:hover { border-color: var(--mandiri-blue); background: var(--mandiri-light); }
+  .upload-zone-icon { font-size: 28px; margin-bottom: 8px; }
+  .upload-zone-lbl { font-size: 12px; font-weight: 600; color: var(--gray-700); }
+  .upload-zone-sub  { font-size: 10px; color: var(--gray-400); margin-top: 3px; }
+
+  /* Verify result */
+  .verify-box {
+    border-radius: 14px; padding: 14px; margin-bottom: 12px;
+    display: none;
+  }
+  .verify-box.show { display: block; }
+  .verify-box.valid   { background: #E8F5EE; border: 1.5px solid #2E7D32; }
+  .verify-box.invalid { background: #FDECEA; border: 1.5px solid #C62828; }
+  .verify-icon   { font-size: 26px; text-align:center; margin-bottom:6px; }
+  .verify-title  { font-size: 13px; font-weight: 700; text-align:center; margin-bottom:10px; }
+  .verify-title.valid   { color: #1A7F4E; }
+  .verify-title.invalid { color: #C62828; }
+  .tx-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(0,0,0,.06); font-size:12px; }
+  .tx-row:last-child { border-bottom:none; }
+  .tx-key { color: var(--gray-400); }
+  .tx-val { font-weight: 600; }
+
+  /* Payment overlay */
+  .payment-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.7);
+    display:none; align-items:center; justify-content:center; z-index:999;
+  }
+  .payment-overlay.show { display:flex; }
+  .payment-box {
+    background:white; border-radius:24px; padding:28px;
+    text-align:center; max-width:320px; width:90%;
+    animation: popIn .3s ease;
+  }
+  @keyframes popIn { 0%{transform:scale(.85);opacity:0} 100%{transform:scale(1);opacity:1} }
+  .payment-icon  { font-size:48px; margin-bottom:10px; }
+  .payment-title { font-size:17px; font-weight:800; margin-bottom:6px; }
+  .payment-sub   { font-size:12px; color:var(--gray-400); margin-bottom:14px; }
+  .payment-reveal {
+    background:#FDECEA; border-radius:10px; padding:12px;
+    font-size:11px; color:#C62828; text-align:left; margin-bottom:14px; display:none;
+  }
+
+  /* jsQR notice */
+  .qr-decode-status {
+    font-size:11px; text-align:center; color: var(--gray-400); margin-bottom:8px; min-height:16px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:800px;margin:0 auto;">
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-size:11px;color:var(--gray-400);letter-spacing:1px;text-transform:uppercase;font-weight:600;">Entitas 03</div>
+    <div style="font-size:20px;font-weight:800;color:var(--gray-900);margin-top:4px;">📱 Simulator M-Banking</div>
+    <div style="font-size:13px;color:var(--gray-400);margin-top:4px;">Scan QR Code dari layar kasir menggunakan kamera atau upload foto</div>
+  </div>
+
+  <div class="grid-2" style="align-items:start;gap:24px;">
+
+    <!-- Phone Frame -->
+    <div>
+      <div class="phone-outer">
+        <div class="phone-screen">
+          <div class="phone-statusbar">
+            <span id="phone-time">09:41</span>
+            <span>Livin' by Mandiri</span>
+            <span>📶 5G</span>
+          </div>
+          <div class="phone-topbar">
+            <div class="phone-topbar-back">←</div>
+            <div class="phone-topbar-info">
+              <div class="phone-topbar-title">Scan QRIS</div>
+              <div class="phone-topbar-sub">Powered by Livin' Security</div>
+            </div>
+          </div>
+          <div class="phone-body">
+
+            <!-- Balance -->
+            <div class="balance-card">
+              <div class="balance-lbl">Saldo Tabungan</div>
+              <div class="balance-amt" id="phone-balance">Rp 500.000</div>
+              <div class="balance-acct">1234-5678-9012 • Budi Santoso</div>
+            </div>
+
+            <!-- Mode tabs -->
+            <div class="scan-modes">
+              <button class="scan-mode-btn active" id="tab-camera" onclick="switchMode('camera')">📷 Kamera</button>
+              <button class="scan-mode-btn" id="tab-upload" onclick="switchMode('upload')">🖼️ Upload Foto</button>
+            </div>
+
+            <!-- Camera mode -->
+            <div id="mode-camera">
+              <div class="viewfinder-wrap" id="viewfinder-wrap" style="height:200px;display:flex;align-items:center;justify-content:center;">
+                <video id="camera-video" autoplay playsinline style="display:none;width:100%;"></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+                <div id="camera-placeholder" style="color:#555;text-align:center;padding:20px;">
+                  <div style="font-size:28px;margin-bottom:8px;">📷</div>
+                  <div style="font-size:12px;">Klik "Buka Kamera" untuk scan</div>
+                </div>
+                <div class="viewfinder-overlay" id="viewfinder-overlay" style="display:none;">
+                  <div class="viewfinder-corner"></div>
+                  <div class="scan-line"></div>
+                </div>
+              </div>
+              <div class="qr-decode-status" id="camera-status"></div>
+              <button class="btn btn-primary btn-full" id="btn-camera" onclick="toggleCamera()">
+                📷 Buka Kamera
+              </button>
+            </div>
+
+            <!-- Upload mode -->
+            <div id="mode-upload" style="display:none;">
+              <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+                <div class="upload-zone-icon">🖼️</div>
+                <div class="upload-zone-lbl">Klik untuk pilih foto QR Code</div>
+                <div class="upload-zone-sub">PNG, JPG, atau screenshot QR</div>
+              </div>
+              <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleUpload(event)" />
+              <canvas id="upload-canvas" style="display:none;"></canvas>
+              <div class="qr-decode-status" id="upload-status"></div>
+            </div>
+
+            <!-- Verify result -->
+            <div id="verify-valid" class="verify-box">
+              <div class="verify-icon">🔒</div>
+              <div class="verify-title valid">PEMBAYARAN AMAN</div>
+              <div>
+                <div class="tx-row"><span class="tx-key">Merchant</span><span class="tx-val" id="vfy-merchant">—</span></div>
+                <div class="tx-row"><span class="tx-key">Nominal</span><span class="tx-val" id="vfy-nominal">—</span></div>
+                <div class="tx-row"><span class="tx-key">Signature</span><span class="tx-val" style="color:#1A7F4E;">✅ Valid</span></div>
+              </div>
+            </div>
+            <div id="verify-invalid" class="verify-box">
+              <div class="verify-icon">⛔</div>
+              <div class="verify-title invalid">QR TIDAK VALID</div>
+              <div style="font-size:12px;color:#C62828;text-align:center;">Format QR tidak dikenali atau bukan QRIS yang valid.</div>
+            </div>
+
+            <!-- Pay button -->
+            <div id="pay-wrap" style="display:none;">
+              <button class="btn btn-success btn-full" id="btn-pay" onclick="doPay()">
+                💳 Bayar Sekarang
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info panel kanan -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue">ℹ️</div>
+          <div><div class="card-title">Cara Penggunaan</div></div>
+        </div>
+        <div class="card-body">
+          <ol style="font-size:13px;line-height:2;color:var(--gray-700);padding-left:18px;">
+            <li>Buka tab <strong>Kasir</strong> dan generate QRIS</li>
+            <li>Gunakan <strong>Kamera</strong> untuk scan QR di layar kasir, atau <strong>Upload Foto</strong> screenshot QR</li>
+            <li>Verifikasi signature akan berjalan otomatis</li>
+            <li>Klik <strong>Bayar</strong> untuk konfirmasi transaksi</li>
+          </ol>
+          <div style="background:var(--mandiri-light);border-radius:10px;padding:12px;margin-top:12px;font-size:12px;color:var(--mandiri-navy);">
+            💡 Jika attacker sudah mengaktifkan serangan, kamera akan membaca QR yang sudah dipalsukan — tapi verifikasi RSA akan tetap <strong>VALID</strong>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Riwayat Transaksi -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon gold">📋</div>
+          <div><div class="card-title">Riwayat Transaksi</div></div>
+        </div>
+        <div class="card-body">
+          <div id="tx-history" style="font-size:13px;color:var(--gray-400);text-align:center;padding:16px 0;">
+            Belum ada transaksi.
+          </div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue">🖥️</div>
+          <div><div class="card-title">Log Verifikasi</div></div>
+        </div>
+        <div class="card-body">
+          <div class="terminal" id="terminal-mbanking">
+            <div class="log-info">Menunggu aktivitas scan...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Payment overlay -->
+<div class="payment-overlay" id="payment-overlay">
+  <div class="payment-box">
+    <div class="payment-icon" id="pay-icon">✅</div>
+    <div class="payment-title" id="pay-title">Pembayaran Berhasil</div>
+    <div class="payment-sub" id="pay-sub">—</div>
+    <div class="payment-reveal" id="pay-reveal">—</div>
+    <button class="btn btn-primary btn-full" onclick="closeOverlay()">Selesai</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jsQR library untuk decode QR dari gambar/video -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  let cameraActive = false;
+  let videoStream = null;
+  let scanInterval = null;
+  let currentMode = 'camera';
+  let pendingQrisString = null;
+  let pendingIsForged = false;
+  let txHistory = [];
+
+  // Update jam
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('phone-time').textContent =
+      now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  }
+  setInterval(updateClock, 1000); updateClock();
+
+  /* ── MODE SWITCH ── */
+  function switchMode(mode) {
+    currentMode = mode;
+    document.getElementById('tab-camera').className = 'scan-mode-btn' + (mode==='camera'?' active':'');
+    document.getElementById('tab-upload').className = 'scan-mode-btn' + (mode==='upload'?' active':'');
+    document.getElementById('mode-camera').style.display = mode==='camera' ? 'block' : 'none';
+    document.getElementById('mode-upload').style.display = mode==='upload' ? 'block' : 'none';
+    if (mode !== 'camera' && cameraActive) stopCamera();
+  }
+
+  /* ── CAMERA ── */
+  async function toggleCamera() {
+    if (cameraActive) { stopCamera(); return; }
+    const btn = document.getElementById('btn-camera');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Membuka kamera...';
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: {ideal:640}, height: {ideal:480} }
+      });
+      const video = document.getElementById('camera-video');
+      video.srcObject = videoStream;
+      video.style.display = 'block';
+      document.getElementById('camera-placeholder').style.display = 'none';
+      document.getElementById('viewfinder-overlay').style.display = 'flex';
+      cameraActive = true;
+      btn.disabled = false;
+      btn.innerHTML = '⏹ Tutup Kamera';
+      document.getElementById('camera-status').textContent = 'Arahkan kamera ke QR Code...';
+      startScan();
+    } catch(e) {
+      btn.disabled = false;
+      btn.innerHTML = '📷 Buka Kamera';
+      document.getElementById('camera-status').textContent = '⚠️ Kamera tidak tersedia. Gunakan mode Upload.';
+    }
+  }
+
+  function stopCamera() {
+    if (videoStream) videoStream.getTracks().forEach(t=>t.stop());
+    document.getElementById('camera-video').style.display = 'none';
+    document.getElementById('camera-placeholder').style.display = 'block';
+    document.getElementById('viewfinder-overlay').style.display = 'none';
+    if (scanInterval) clearInterval(scanInterval);
+    cameraActive = false;
+    document.getElementById('btn-camera').innerHTML = '📷 Buka Kamera';
+    document.getElementById('camera-status').textContent = '';
+  }
+
+  function startScan() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+    const ctx = canvas.getContext('2d');
+    scanInterval = setInterval(() => {
+      if (!cameraActive || video.readyState < 2) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (typeof jsQR === 'undefined') return;
+      const code = jsQR(imgData.data, canvas.width, canvas.height, {inversionAttempts:'dontInvert'});
+      if (code && code.data) {
+        document.getElementById('camera-status').textContent = '✅ QR Code terdeteksi!';
+        stopCamera();
+        processQrisString(code.data, 'camera');
+      }
+    }, 250);
+  }
+
+  /* ── UPLOAD ── */
+  function handleUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    document.getElementById('upload-status').textContent = '⏳ Membaca QR dari gambar...';
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.getElementById('upload-canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        if (typeof jsQR === 'undefined') {
+          document.getElementById('upload-status').textContent = '⚠️ jsQR belum termuat.';
+          return;
+        }
+        const code = jsQR(imgData.data, canvas.width, canvas.height, {inversionAttempts:'attemptBoth'});
+        if (code && code.data) {
+          document.getElementById('upload-status').textContent = '✅ QR berhasil dibaca!';
+          processQrisString(code.data, 'upload');
+        } else {
+          document.getElementById('upload-status').textContent = '❌ QR tidak terdeteksi. Coba gambar yang lebih jelas.';
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  /* ── PROCESS QRIS STRING ── */
+  function processQrisString(qrisStr, source) {
+    fetch('/api/scan-qris', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({qris_string: qrisStr})
+    }).then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') {
+        showInvalid(); return;
+      }
+      pendingQrisString = qrisStr;
+      pendingIsForged = d.is_forged;
+
+      document.getElementById('phone-balance').textContent = formatRp(d.balance);
+
+      if (d.is_valid) {
+        showValid(d.merchant_name, d.nominal);
+      } else {
+        showInvalid();
+      }
+      pollMbanking();
+    }).catch(()=>showInvalid());
+  }
+
+  function showValid(merchant, nominal) {
+    document.getElementById('verify-valid').classList.add('show');
+    document.getElementById('verify-invalid').classList.remove('show');
+    document.getElementById('vfy-merchant').textContent = merchant.replace(/\u200b/g,'') + ' ';
+    document.getElementById('vfy-nominal').textContent  = formatRp(nominal);
+    document.getElementById('pay-wrap').style.display   = 'block';
+  }
+
+  function showInvalid() {
+    document.getElementById('verify-invalid').classList.add('show');
+    document.getElementById('verify-valid').classList.remove('show');
+    document.getElementById('pay-wrap').style.display = 'none';
+  }
+
+  /* ── PAY ── */
+  function doPay() {
+    const btn = document.getElementById('btn-pay');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Memproses...';
+
+    const body = pendingQrisString ? {qris_string: pendingQrisString} : {};
+    fetch('/api/pay', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') {
+        alert(d.message); btn.disabled=false; btn.innerHTML='💳 Bayar Sekarang'; return;
+      }
+      document.getElementById('phone-balance').textContent = formatRp(d.balance_customer);
+      btn.style.display = 'none';
+      document.getElementById('pay-wrap').style.display = 'none';
+
+      // Add to history
+      txHistory.unshift({
+        nominal: d.nominal,
+        dest: d.destination,
+        is_forged: d.is_forged,
+        time: new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})
+      });
+      renderHistory();
+
+      // Show overlay
+      const overlay = document.getElementById('payment-overlay');
+      overlay.classList.add('show');
+      if (d.is_forged) {
+        document.getElementById('pay-icon').textContent = '⚠️';
+        document.getElementById('pay-title').textContent = 'Pembayaran Terkirim';
+        document.getElementById('pay-sub').textContent = formatRp(d.nominal) + ' terkirim';
+        const reveal = document.getElementById('pay-reveal');
+        reveal.style.display = 'block';
+        reveal.innerHTML = `<strong>⚠️ Dana masuk ke REKENING PENIPU!</strong><br><br>
+          Anda membayar ke rekening <strong>${d.destination}</strong>, bukan ke Kopi Gembira yang sah.<br><br>
+          RSA signature terverifikasi VALID karena penyerang menggunakan kunci privat yang sama hasil crack kuantum.`;
+      } else {
+        document.getElementById('pay-icon').textContent = '✅';
+        document.getElementById('pay-title').textContent = 'Pembayaran Berhasil';
+        document.getElementById('pay-sub').textContent = formatRp(d.nominal) + ' ke ' + d.destination;
+        document.getElementById('pay-reveal').style.display = 'none';
+      }
+      pollMbanking();
+    });
+  }
+
+  function renderHistory() {
+    const el = document.getElementById('tx-history');
+    if (txHistory.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--gray-400);padding:16px;">Belum ada transaksi.</div>'; return; }
+    el.innerHTML = txHistory.map(tx => `
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:10px 0;border-bottom:1px solid var(--gray-200);">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:${tx.is_forged?'var(--danger-red)':'var(--gray-900)'}">
+            ${tx.is_forged ? '⚠️ ' : '✅ '} ${formatRp(tx.nominal)}
+          </div>
+          <div style="font-size:11px;color:var(--gray-400);">${tx.dest}</div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);">${tx.time}</div>
+      </div>
+    `).join('');
+  }
+
+  function closeOverlay() {
+    document.getElementById('payment-overlay').classList.remove('show');
+    pendingQrisString = null;
+    document.getElementById('verify-valid').classList.remove('show');
+    document.getElementById('verify-invalid').classList.remove('show');
+    document.getElementById('btn-pay').style.display = '';
+    document.getElementById('btn-pay').disabled = false;
+    document.getElementById('btn-pay').innerHTML = '💳 Bayar Sekarang';
+  }
+
+  function pollMbanking() {
+    fetch('/api/state').then(r=>r.json()).then(d=>{
+      document.getElementById('phone-balance').textContent = formatRp(d.balance_customer);
+      renderLog(d.attack_log.filter(l=>l.entity==='MBANKING'), 'terminal-mbanking');
+    });
+  }
+  setInterval(pollMbanking, 2500);
+  pollMbanking();
+</script>
+{% endblock %}

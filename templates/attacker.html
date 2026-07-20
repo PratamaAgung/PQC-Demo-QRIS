@@ -1,0 +1,754 @@
+{% extends "base.html" %}
+{% block title %}MitM Attacker — Terminal Penyusup{% endblock %}
+{% block nav_attacker %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  body { background: #0A0E14; }
+  .card { background: #161B22; border: 1px solid #30363D; color: #C9D1D9; }
+  .card-title { color: #E6EDF3 !important; }
+  .card-sub   { color: #7D8590 !important; }
+  .card-header { border-bottom-color: #30363D !important; }
+  .card-icon.red  { background: rgba(220,38,38,.15) !important; }
+  .card-icon.blue { background: rgba(88,166,255,.10) !important; }
+  .data-row   { border-bottom-color: #30363D !important; }
+  .data-key   { color: #7D8590 !important; }
+  .data-value { color: #79C0FF !important; }
+  .divider    { background: #30363D !important; }
+  .terminal   { background: #010409; border: 1px solid #30363D; max-height: 280px; }
+
+  /* Header */
+  .att-header {
+    background: linear-gradient(135deg,#1A0000,#3D0000,#8B0000);
+    border: 1px solid rgba(220,38,38,.3); border-radius:16px;
+    padding:24px; color:white; margin-bottom:20px;
+    display:flex; align-items:center; gap:16px;
+  }
+  .att-header-icon {
+    width:56px; height:56px; background:rgba(220,38,38,.2);
+    border:1px solid rgba(220,38,38,.4); border-radius:14px;
+    display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;
+  }
+  @keyframes floatSkull{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .skull-anim { animation:floatSkull 2s ease-in-out infinite; display:inline-block; }
+
+  /* Traffic table */
+  .traffic-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .traffic-table th {
+    background:#0D1117; color:#7D8590; font-weight:600; text-align:left;
+    padding:7px 10px; border-bottom:1px solid #30363D; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .traffic-table td { padding:8px 10px; border-bottom:1px solid #1C2128; color:#C9D1D9; vertical-align:middle; }
+  .traffic-table tr.selectable { cursor:pointer; transition:background .15s; }
+  .traffic-table tr.selectable:hover { background:rgba(255,123,114,.06); }
+  .traffic-table tr.selected { background:rgba(255,123,114,.12) !important; }
+  .traffic-table tr.selected td { color:#FF7B72; }
+  .pkt-id   { font-family:'Courier New',monospace; color:#79C0FF; font-size:10px; }
+  .pkt-time { color:#484F58; }
+  .pkt-sig  { font-family:'Courier New',monospace; color:#7D8590; font-size:10px; }
+  .sniff-empty { text-align:center; padding:20px; color:#484F58; font-size:12px; }
+
+  /* Progress */
+  .progress-bar-wrap { background:#0D1117; border-radius:6px; height:8px; overflow:hidden; margin:8px 0; }
+  .progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#FF7B72,#FFA500); border-radius:6px; transition:width .08s; }
+  @keyframes glitch{0%,100%{transform:translate(0)}20%{transform:translate(-2px,1px)}40%{transform:translate(2px,-1px)}}
+  .cracking { animation:glitch .15s infinite; color:#FF7B72 !important; }
+
+  /* Phase */
+  .phase-step { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid #30363D; }
+  .phase-step:last-child { border-bottom:none; }
+  .phase-dot  { width:10px; height:10px; border-radius:50%; background:#30363D; flex-shrink:0; transition:all .3s; }
+  .phase-dot.active { background:#FF7B72; box-shadow:0 0 8px #FF7B72; }
+  .phase-dot.done   { background:#56D364; box-shadow:0 0 6px #56D364; }
+  .phase-text { font-size:13px; color:#7D8590; }
+  .phase-text.active { color:#FF7B72; font-weight:600; }
+  .phase-text.done   { color:#56D364; }
+
+  /* Toggle */
+  .toggle-sw    { display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .toggle-track { width:48px; height:26px; border-radius:13px; background:#30363D; position:relative; transition:background .3s; flex-shrink:0; }
+  .toggle-track.on { background:#E53935; }
+  .toggle-thumb { width:20px; height:20px; border-radius:50%; background:white; position:absolute; top:3px; left:3px; transition:left .3s; }
+  .toggle-track.on .toggle-thumb { left:25px; }
+  .toggle-lbl   { font-size:14px; font-weight:700; color:#7D8590; transition:color .3s; }
+  .toggle-lbl.on { color:#FF7B72; }
+
+  /* Attack control box */
+  .atk-box { border-radius:12px; padding:16px; border:1px solid #30363D; background:#0D1117; transition:all .3s; }
+  .atk-box.active { border-color:rgba(220,38,38,.5); background:rgba(220,38,38,.06); animation:pulse 2s infinite; }
+
+  /* Multiplier buttons */
+  .mult-btn {
+    padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700;
+    border:1.5px solid #30363D; background:#0D1117; cursor:pointer;
+    color:#7D8590; transition:all .15s; font-family:var(--font-main);
+  }
+  .mult-btn:hover  { border-color:#FF7B72; color:#FF7B72; }
+  .mult-btn.active { border-color:#FF7B72; background:rgba(255,123,114,.15); color:#FF7B72; }
+
+  /* Diff panel */
+  .diff-panel { background:#0D1117; border-radius:10px; overflow:hidden; }
+  .diff-hdr { padding:6px 12px; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+  .diff-hdr.before { background:rgba(86,211,100,.1); color:#56D364; border-left:3px solid #56D364; }
+  .diff-hdr.after  { background:rgba(255,123,114,.1); color:#FF7B72; border-left:3px solid #FF7B72; }
+  .diff-body { padding:10px 12px; font-family:'Courier New',monospace; font-size:11px; line-height:1.8; }
+  .diff-k  { color:#484F58; }
+  .diff-vb { color:#56D364; }
+  .diff-va { color:#FF7B72; font-weight:bold; }
+  .diff-chg { background:rgba(255,123,114,.06); border-left:2px solid #FF7B72; padding-left:8px; }
+
+  /* Algo race */
+  .algo-race { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .algo-box  { background:#0D1117; border-radius:10px; padding:12px; }
+  .algo-box.q { border-top:2px solid #FF7B72; }
+  .algo-box.c { border-top:2px solid #E3B341; }
+  .algo-title { font-size:11px; font-weight:700; margin-bottom:8px; }
+  .algo-title.q { color:#FF7B72; }
+  .algo-title.c { color:#E3B341; }
+  .algo-time  { font-size:22px; font-weight:800; font-family:'Courier New',monospace; }
+  .algo-time.q { color:#FF7B72; }
+  .algo-time.c { color:#E3B341; }
+  .algo-detail { font-size:10px; color:#484F58; margin-top:4px; line-height:1.6; }
+  .algo-bar-wrap { height:6px; background:#161B22; border-radius:3px; margin-top:8px; overflow:hidden; }
+  .algo-bar  { height:100%; border-radius:3px; transition:width 1s ease; }
+  .algo-bar.q { background:linear-gradient(90deg,#FF7B72,#FF4500); }
+  .algo-bar.c { background:linear-gradient(90deg,#E3B341,#FFA500); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="att-header">
+  <div class="att-header-icon"><span class="skull-anim">☠️</span></div>
+  <div>
+    <div style="font-size:11px;opacity:.5;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Entitas 02 — RESTRICTED</div>
+    <div style="font-size:20px;font-weight:800;margin:3px 0;">Terminal MitM Attacker</div>
+    <div style="font-size:13px;opacity:.65;">Man-in-the-Middle · Quantum Forge · Amount Manipulation</div>
+  </div>
+  <div style="margin-left:auto;text-align:right;">
+    <div style="font-size:11px;opacity:.5;">Status</div>
+    <span class="badge badge-danger" id="atk-badge">MONITORING</span>
+  </div>
+</div>
+
+<div class="grid-2" style="align-items:start;gap:16px;">
+
+<!-- ════ KIRI ════ -->
+<div style="display:flex;flex-direction:column;gap:16px;">
+
+  <!-- Phase tracker -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">⚡</div>
+      <div><div class="card-title">Attack Progress</div><div class="card-sub">4-fase serangan MitM</div></div>
+    </div>
+    <div class="card-body">
+      <div class="phase-step"><div class="phase-dot done" id="dot-1"></div><div class="phase-text done" id="pt-1">Fase 1 — Proxy aktif, memantau lalu lintas</div></div>
+      <div class="phase-step"><div class="phase-dot" id="dot-2"></div><div class="phase-text" id="pt-2">Fase 2 — The Harvest (sniff &amp; pilih payload)</div></div>
+      <div class="phase-step"><div class="phase-dot" id="dot-3"></div><div class="phase-text" id="pt-3">Fase 3 — Quantum Crack (Shor's Algorithm)</div></div>
+      <div class="phase-step"><div class="phase-dot" id="dot-4"></div><div class="phase-text" id="pt-4">Fase 4 — Forge + Attack Control</div></div>
+    </div>
+  </div>
+
+  <!-- Fase 2: Harvest -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">🎣</div>
+      <div><div class="card-title">Fase 2 — The Harvest</div><div class="card-sub">Sniff traffic QRIS, pilih payload</div></div>
+      <div style="margin-left:auto;"><span class="badge" id="sniff-badge" style="background:rgba(220,38,38,.15);color:#FF7B72;">0 paket</span></div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:#7D8590;margin-bottom:12px;line-height:1.6;">
+        Proxy memantau jalur Bank → Kasir. Setiap QRIS yang digenerate kasir otomatis tersimpan di sini. Klik sniff untuk refresh, lalu pilih satu packet sebagai target crack.
+      </p>
+      <button class="btn btn-danger btn-full" id="btn-harvest" onclick="doHarvest()">🎣 Sniff QRIS Traffic</button>
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;color:#7D8590;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📡 Intercepted Packets</div>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid #30363D;">
+          <table class="traffic-table">
+            <thead><tr><th>Waktu</th><th>Merchant</th><th>Nominal</th><th>n (pubkey)</th><th>Sig</th></tr></thead>
+            <tbody id="traffic-tbody"><tr><td colspan="5" class="sniff-empty">Generate QRIS di kasir lalu klik Sniff.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="sel-pkt-info" style="display:none;margin-top:8px;background:#0D1117;
+          border:1px solid rgba(255,123,114,.3);border-radius:8px;padding:8px 12px;font-size:11px;">
+          <span style="color:#E3B341;">✅ Target:</span>
+          <span style="color:#FF7B72;font-family:'Courier New',monospace;" id="sel-pkt-id">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fase 3: Crack -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">⚛️</div>
+      <div><div class="card-title">Fase 3 — Quantum Crack</div><div class="card-sub">Shor's Algorithm + Pollard's Rho sebagai pembanding</div></div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:#7D8590;margin-bottom:12px;line-height:1.6;">
+        Shor's Algorithm (quantum) vs Pollard's Rho (klasik terbaik) — keduanya dijalankan nyata secara paralel untuk menunjukkan perbedaan kecepatan era kuantum vs klasik.
+      </p>
+      <div id="crack-target" class="hidden" style="margin-bottom:12px;">
+        <div class="data-row"><span class="data-key">Target n</span><span class="data-value" id="crack-n">—</span></div>
+        <div class="data-row"><span class="data-key">Bit length</span><span class="data-value" id="crack-bits">—</span></div>
+      </div>
+      <div id="crack-progress" class="hidden" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="font-size:11px;color:#E3B341;" id="crack-msg">Inisialisasi...</div>
+          <div style="font-size:11px;color:#484F58;font-family:'Courier New',monospace;" id="crack-timer">0.0s</div>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="crack-bar"></div></div>
+        <div style="font-size:10px;color:#484F58;margin-top:3px;">Progress real dari komputasi faktorisasi</div>
+      </div>
+      <button class="btn btn-danger btn-full" id="btn-crack" onclick="doCrack()" disabled>⚛️ Jalankan Shor's Algorithm</button>
+      <div id="crack-result" class="hidden" style="margin-top:14px;">
+        <div class="data-row"><span class="data-key">p (faktor 1)</span><span class="data-value" id="res-p" style="color:#FF7B72;">—</span></div>
+        <div class="data-row"><span class="data-key">q (faktor 2)</span><span class="data-value" id="res-q" style="color:#FF7B72;">—</span></div>
+        <div class="data-row"><span class="data-key">φ(n) = (p−1)(q−1)</span><span class="data-value" id="res-phi">—</span></div>
+        <div class="data-row"><span class="data-key">Private Key d</span><span class="data-value" id="res-d" style="color:#FF7B72;font-weight:700;">—</span></div>
+        <div class="data-row"><span class="data-key">⏱ Waktu Shor's</span><span class="data-value" id="res-time" style="color:#E3B341;">—</span></div>
+      </div>
+
+      <!-- Algo Race -->
+      <div id="algo-race" class="hidden" style="margin-top:16px;">
+        <div style="font-size:10px;color:#7D8590;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⚡ Perbandingan Real: Klasik vs Kuantum</div>
+        <div class="algo-race">
+          <div class="algo-box q">
+            <div class="algo-title q">⚛️ Shor's Algorithm</div>
+            <div class="algo-time q" id="race-shor">—</div>
+            <div class="algo-detail">Kompleksitas: <strong style="color:#FF7B72;">O(log³ n)</strong><br>Quantum period-finding</div>
+            <div class="algo-bar-wrap"><div class="algo-bar q" id="bar-shor" style="width:0%"></div></div>
+          </div>
+          <div class="algo-box c">
+            <div class="algo-title c">🖥️ Pollard's Rho</div>
+            <div class="algo-time c" id="race-classic">—</div>
+            <div class="algo-detail">Kompleksitas: <strong style="color:#E3B341;">O(n^¼)</strong><br>Algoritma klasik terbaik</div>
+            <div class="algo-bar-wrap"><div class="algo-bar c" id="bar-classic" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div id="race-verdict" style="display:none;margin-top:10px;background:#0D1117;
+          border-radius:8px;padding:10px;font-size:12px;text-align:center;line-height:1.6;color:#E3B341;"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════ KANAN ════ -->
+<div style="display:flex;flex-direction:column;gap:16px;">
+
+  <!-- Fase 4: Config + Forge -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">🪄</div>
+      <div><div class="card-title">Fase 4 — Forge & Attack Config</div><div class="card-sub">Konfigurasikan jenis serangan sebelum forge</div></div>
+    </div>
+    <div class="card-body">
+      <!-- Config -->
+      <div style="background:#0D1117;border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:10px;color:#7D8590;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">⚙️ Konfigurasi Serangan</div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #30363D;">
+          <div>
+            <div style="font-size:12px;color:#E6EDF3;font-weight:600;">Redirect Rekening</div>
+            <div style="font-size:10px;color:#484F58;margin-top:2px;">Alihkan tujuan pembayaran ke rekening penipu</div>
+          </div>
+          <label class="toggle-sw" onclick="toggleRedirect()">
+            <div class="toggle-track on" id="redirect-track"><div class="toggle-thumb"></div></div>
+            <span class="toggle-lbl on" id="redirect-lbl">ON</span>
+          </label>
+        </div>
+
+        <div>
+          <div style="font-size:12px;color:#E6EDF3;font-weight:600;margin-bottom:6px;">
+            Manipulasi Nominal
+            <span style="color:#FF7B72;font-size:10px;font-weight:400;"> — nasabah lihat normal, ditagih berlipat</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="mult-btn active" id="mult-1" onclick="setMult(1)">1× normal</button>
+            <button class="mult-btn" id="mult-2" onclick="setMult(2)">2× lipat</button>
+            <button class="mult-btn" id="mult-3" onclick="setMult(3)">3× lipat</button>
+            <button class="mult-btn" id="mult-5" onclick="setMult(5)">5× lipat</button>
+          </div>
+          <div style="font-size:11px;color:#484F58;margin-top:6px;" id="mult-desc">
+            Tidak ada manipulasi nominal.
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-danger btn-full" id="btn-forge" onclick="doForge()" disabled>
+        🪄 Forge QRIS dengan Config Ini
+      </button>
+
+      <!-- Before / After diff -->
+      <div id="diff-panel" class="hidden" style="margin-top:14px;">
+        <div style="font-size:10px;color:#7D8590;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📊 Payload Before / After</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="diff-panel">
+            <div class="diff-hdr before">✅ Original (Bank)</div>
+            <div class="diff-body" id="diff-before">—</div>
+          </div>
+          <div class="diff-panel">
+            <div class="diff-hdr after">❌ Forged (Penipu)</div>
+            <div class="diff-body" id="diff-after">—</div>
+          </div>
+        </div>
+        <div id="diff-note" style="background:#0D1117;border-radius:8px;padding:8px 12px;
+          font-size:11px;color:#7D8590;margin-top:8px;line-height:1.7;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attack Control -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">🎚️</div>
+      <div><div class="card-title">Attack Control</div><div class="card-sub">ON = setiap QRIS baru otomatis di-intercept & dipalsukan</div></div>
+    </div>
+    <div class="card-body">
+      <div id="atk-box" class="atk-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font-size:13px;color:#E6EDF3;font-weight:600;">QRIS Injection Attack</div>
+            <div style="font-size:11px;color:#7D8590;margin-top:2px;" id="atk-desc">Selesaikan Fase 4 terlebih dahulu.</div>
+          </div>
+          <label class="toggle-sw" onclick="toggleAttack()">
+            <div class="toggle-track" id="atk-track"><div class="toggle-thumb"></div></div>
+            <span class="toggle-lbl" id="atk-lbl">OFF</span>
+          </label>
+        </div>
+        <div id="atk-detail" style="font-size:12px;color:#7D8590;padding:8px;background:#010409;border-radius:8px;">
+          Forge QRIS terlebih dahulu untuk mengaktifkan serangan.
+        </div>
+      </div>
+
+      <!-- Live payload panel (tampil saat attack ON) -->
+      <div id="live-panel" class="hidden" style="margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#FF7B72;
+            box-shadow:0 0 6px #FF7B72;display:inline-block;animation:pulse 1s infinite;"></span>
+          <span style="font-size:10px;color:#FF7B72;text-transform:uppercase;letter-spacing:1px;font-weight:700;">
+            LIVE — Forged Payload Terakhir
+          </span>
+        </div>
+        <div style="background:#0D1117;border-radius:10px;overflow:hidden;">
+          <div class="diff-hdr after" style="padding:6px 12px;">Payload yang diterima kasir</div>
+          <div class="diff-body" id="live-payload" style="max-height:130px;overflow-y:auto;">Menunggu intercept...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monitor Dana -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">💰</div>
+      <div><div class="card-title">Monitor Dana Masuk</div><div class="card-sub">Rekening penipu real-time</div></div>
+    </div>
+    <div class="card-body">
+      <div style="text-align:center;padding:10px 0;">
+        <div style="font-size:11px;color:#7D8590;text-transform:uppercase;letter-spacing:1px;">Total Dana Dicuri</div>
+        <div style="font-size:32px;font-weight:800;color:#FF7B72;margin-top:4px;" id="stolen-amt">Rp 0</div>
+        <div style="font-size:10px;color:#484F58;margin-top:4px;">ID.KOPIGMBR4UD.666</div>
+      </div>
+      <div class="divider"></div>
+      <div id="atk-txlog" style="font-size:12px;color:#484F58;text-align:center;padding:6px 0;">Menunggu transaksi...</div>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon red">🖥️</div>
+      <div><div class="card-title">Attack Terminal Log</div></div>
+    </div>
+    <div class="card-body">
+      <div class="terminal" id="terminal-attacker">
+        <div style="color:#FF7B72;">[ATTACKER] Terminal aktif. Menunggu target...</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end kanan -->
+</div><!-- end grid -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ═══ STATE ═══ */
+  let selPktId   = null;
+  let attackOn   = false;
+  let forgeReady = false;
+  let redirectOn = true;
+  let curMult    = 1;
+  let crackIv    = null;
+
+  /* ═══ HELPERS ═══ */
+  function phase(n, s) {
+    document.getElementById('dot-'+n).className = 'phase-dot '+s;
+    document.getElementById('pt-'+n).className  = 'phase-text '+s;
+  }
+
+  /* ═══ ATTACK CONFIG ═══ */
+  function toggleRedirect() {
+    redirectOn = !redirectOn;
+    const tr = document.getElementById('redirect-track');
+    const lb = document.getElementById('redirect-lbl');
+    tr.classList.toggle('on', redirectOn);
+    lb.classList.toggle('on', redirectOn);
+    lb.textContent = redirectOn ? 'ON' : 'OFF';
+    fetch('/api/attack-config', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({redirect_merchant: redirectOn})
+    });
+  }
+
+  function setMult(v) {
+    curMult = v;
+    [1,2,3,5].forEach(x => {
+      const b = document.getElementById('mult-'+x);
+      if (b) b.className = 'mult-btn'+(x===v?' active':'');
+    });
+    const desc = document.getElementById('mult-desc');
+    if (v === 1) {
+      desc.innerHTML = 'Tidak ada manipulasi nominal.';
+    } else {
+      desc.innerHTML =
+        `Nasabah melihat nominal <span style="color:#56D364">asli</span>, ` +
+        `sistem mendebet <span style="color:#FF7B72;font-weight:700">${v}× lipat</span> — ` +
+        `selisih masuk ke rekening penipu.`;
+    }
+    fetch('/api/attack-config', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({amount_multiplier: v})
+    });
+  }
+
+  /* ═══ HARVEST ═══ */
+  function doHarvest() {
+    const btn = document.getElementById('btn-harvest');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sniffing...';
+    fetch('/api/harvest', {method:'POST'}).then(r=>r.json()).then(d=>{
+      btn.disabled = false; btn.innerHTML = '🎣 Sniff QRIS Traffic';
+      if (d.status !== 'ok') { alert('⚠️ '+d.message+'\nGenerate QRIS di Kasir terlebih dahulu.'); return; }
+      phase(2,'active');
+      loadPackets();
+    });
+  }
+
+  function loadPackets() {
+    fetch('/api/sniff-packets').then(r=>r.json()).then(d=>{
+      document.getElementById('sniff-badge').textContent = d.count+' paket';
+      const tb = document.getElementById('traffic-tbody');
+      if (!d.count) {
+        tb.innerHTML = '<tr><td colspan="5" class="sniff-empty">Belum ada packet.</td></tr>';
+        return;
+      }
+      tb.innerHTML = d.packets.map(p => `
+        <tr class="selectable${p.packet_id===selPktId?' selected':''}"
+          onclick="selectPkt('${p.packet_id}','${p.rsa_n}','${p.rsa_e}')">
+          <td><span class="pkt-time">${p.captured_at}</span></td>
+          <td>${p.merchant_name}</td>
+          <td>Rp ${parseInt(p.amount).toLocaleString('id-ID')}</td>
+          <td><span class="pkt-id">${p.rsa_n}</span></td>
+          <td><span class="pkt-sig">${p.signature_preview}</span></td>
+        </tr>`).join('');
+      if (!selPktId) {
+        const last = d.packets[d.packets.length-1];
+        selectPkt(last.packet_id, last.rsa_n, last.rsa_e);
+      }
+    });
+  }
+
+  function selectPkt(id, n, e) {
+    selPktId = id;
+    document.getElementById('sel-pkt-id').textContent = id;
+    document.getElementById('sel-pkt-info').style.display = 'block';
+    document.getElementById('crack-n').textContent = n;
+    document.getElementById('crack-bits').textContent = parseInt(n).toString(2).length+' bit';
+    document.getElementById('crack-target').classList.remove('hidden');
+    document.getElementById('btn-crack').disabled = false;
+    phase(2,'done'); phase(3,'active');
+    loadPackets();
+  }
+
+  /* ═══ CRACK ═══ */
+  function doCrack() {
+    const btn = document.getElementById('btn-crack');
+    btn.disabled = true; btn.innerHTML = "<span class='spinner'></span> Memulai Shor's...";
+    phase(3,'active');
+    document.getElementById('crack-progress').classList.remove('hidden');
+
+    fetch('/api/quantum-crack', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(selPktId ? {packet_id:selPktId} : {})
+    }).then(r=>r.json()).then(d=>{
+      if (d.status === 'error') {
+        alert('Error: '+d.message);
+        btn.disabled=false; btn.innerHTML='⚛️ Jalankan Shor\'s Algorithm';
+        return;
+      }
+      pollCrack();
+    });
+  }
+
+  function pollCrack() {
+    if (crackIv) clearInterval(crackIv);
+    const bar = document.getElementById('crack-bar');
+    const msg = document.getElementById('crack-msg');
+    const btn = document.getElementById('btn-crack');
+
+    crackIv = setInterval(() => {
+      fetch('/api/crack-status').then(r=>r.json()).then(d=>{
+        // Progress bar (real dari backend)
+        bar.style.width = Math.min(d.progress*100, 99.5)+'%';
+
+        // Step message
+        if (d.step_msg) {
+          msg.textContent = d.step_msg;
+          msg.classList.add('cracking');
+          setTimeout(()=>msg.classList.remove('cracking'), 150);
+        }
+
+        // Timer
+        const tel = document.getElementById('crack-timer');
+        if (tel) tel.textContent = d.elapsed_s.toFixed(1)+'s';
+
+        // Pollard's Rho sudah selesai sementara Shor's masih jalan
+        if (d.running && d.classic_result && d.classic_result.elapsed_ms) {
+          document.getElementById('race-classic').textContent =
+            (d.classic_result.elapsed_ms/1000).toFixed(3)+'s ✓';
+        }
+
+        // Selesai!
+        if (!d.running && d.result) {
+          clearInterval(crackIv); crackIv = null;
+          bar.style.width = '100%';
+          const sMs = d.result.elapsed_ms;
+          msg.textContent = `💀 Crack selesai dalam ${(sMs/1000).toFixed(2)}s!`;
+          msg.style.color = '#FF7B72';
+          msg.classList.remove('cracking');
+          phase(3,'done'); phase(4,'active');
+
+          document.getElementById('res-p').textContent    = d.result.p;
+          document.getElementById('res-q').textContent    = d.result.q;
+          document.getElementById('res-phi').textContent  = d.result.phi_n;
+          document.getElementById('res-d').textContent    = d.result.d_cracked;
+          document.getElementById('res-time').textContent = sMs.toLocaleString()+' ms ('+( sMs/1000).toFixed(2)+'s)';
+          document.getElementById('crack-result').classList.remove('hidden');
+          document.getElementById('btn-forge').disabled = false;
+
+          btn.disabled = false; btn.innerHTML = '💀 Kunci Privat Dicuri!';
+          document.getElementById('atk-badge').textContent = 'KEY COMPROMISED';
+
+          showAlgoRace(sMs, d.classic_result);
+          pollState();
+        }
+
+        if (!d.running && d.error) {
+          clearInterval(crackIv);
+          msg.textContent = '❌ '+d.error; msg.style.color = '#FF7B72';
+          btn.disabled = false; btn.innerHTML = '⚛️ Coba Lagi';
+        }
+      });
+    }, 300);
+  }
+
+  function showAlgoRace(shorMs, cr) {
+    document.getElementById('algo-race').classList.remove('hidden');
+    document.getElementById('race-shor').textContent = (shorMs/1000).toFixed(2)+'s';
+
+    const cMs = cr && cr.elapsed_ms ? cr.elapsed_ms : null;
+    const verdict = document.getElementById('race-verdict');
+    verdict.style.display = 'block';
+
+    if (cMs) {
+      document.getElementById('race-classic').textContent = (cMs/1000).toFixed(3)+'s';
+      // Bar: normalize so the faster one = 30%, slower scales proportionally
+      const faster = Math.min(shorMs, cMs);
+      const slower = Math.max(shorMs, cMs);
+      const ratio  = slower / faster;
+      setTimeout(()=>{
+        document.getElementById('bar-shor').style.width    = (shorMs===faster?'30':Math.min(100,30*ratio))+'%';
+        document.getElementById('bar-classic').style.width = (cMs===faster?'30':Math.min(100,30*ratio))+'%';
+      }, 300);
+
+      if (shorMs <= cMs) {
+        const x = (cMs/shorMs).toFixed(1);
+        verdict.innerHTML =
+          `⚛️ Shor's <strong style="color:#FF7B72">${x}× lebih cepat</strong> dari Pollard's Rho<br>
+           <span style="color:#7D8590;font-size:11px;">
+           Pada RSA-52bit keunggulan sudah terlihat. Pada RSA-2048 perbedaan ini menjadi <strong style="color:#E3B341">10³⁰ × lebih cepat</strong> — itulah mengapa PQC sangat kritis.</span>`;
+      } else {
+        const x = (shorMs/cMs).toFixed(1);
+        verdict.innerHTML =
+          `🖥️ Pada RSA-52bit, Pollard's Rho (O(n^¼)) kebetulan ${x}× lebih cepat<br>
+           <span style="color:#7D8590;font-size:11px;">Ini karena Pollard's bersifat probabilistik dan beruntung menemukan faktor lebih awal.
+           Pada RSA-2048, Pollard's Rho membutuhkan <strong style="color:#FF7B72">10⁳⁸ tahun</strong> sedangkan Shor's <strong style="color:#56D364">hanya menit</strong>.</span>`;
+      }
+    } else {
+      document.getElementById('race-classic').textContent = 'N/A';
+      verdict.textContent = 'Pollard\'s Rho tidak berhasil mendapatkan hasil untuk dibandingkan.';
+    }
+  }
+
+  /* ═══ FORGE ═══ */
+  function doForge() {
+    const btn = document.getElementById('btn-forge');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Forging...';
+    fetch('/api/forge', {method:'POST'}).then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') {
+        alert(d.message); btn.disabled=false;
+        btn.innerHTML='🪄 Forge QRIS dengan Config Ini'; return;
+      }
+      forgeReady = true;
+      phase(4,'active');
+      btn.innerHTML = '✅ Forged — Siap Deploy';
+      document.getElementById('atk-detail').innerHTML =
+        '<span style="color:#E3B341;">✅ QRIS palsu siap.</span> Aktifkan toggle untuk mulai serangan.';
+
+      // Fetch diff dari server
+      fetch('/api/state').then(r=>r.json()).then(s=>{
+        if (s.forge_diff) renderDiff(s.forge_diff);
+      });
+      pollState();
+    });
+  }
+
+  function renderDiff(diff) {
+    const o = diff.original, f = diff.forged;
+    document.getElementById('diff-panel').classList.remove('hidden');
+
+    const mChg = o.merchant_id !== f.merchant_id;
+    const aChg = f.actual_amount !== f.display_amount;
+
+    document.getElementById('diff-before').innerHTML =
+      row('merchant_id', o.merchant_id, false) +
+      row('merchant',    o.merchant_name, false) +
+      row('amount',      'Rp '+o.amount.toLocaleString('id-ID'), false) +
+      row('signature',   o.signature, false);
+
+    document.getElementById('diff-after').innerHTML =
+      row('merchant_id', f.merchant_id, mChg, true) +
+      row('merchant',    f.merchant_name+' [U+200B]', mChg, true) +
+      row('display_amt', 'Rp '+f.display_amount.toLocaleString('id-ID'), false, false, '#56D364') +
+      (aChg ? row('actual_amt', 'Rp '+f.actual_amount.toLocaleString('id-ID')+' ('+f.multiplier+'×!)', true, true) : '') +
+      row('signature',   f.signature, true, true);
+
+    const notes = [];
+    if (mChg) notes.push('Merchant ID dialihkan ke rekening penipu');
+    if (aChg) notes.push(`Nominal dimanipulasi ${f.multiplier}× — nasabah tidak menyadari`);
+    notes.push('Signature di-generate ulang dengan kunci curian → tetap VALID saat diverifikasi');
+    document.getElementById('diff-note').innerHTML =
+      notes.map(n=>`<span style="color:#E3B341">⚠️</span> ${n}`).join('<br>');
+  }
+
+  function row(k, v, changed=false, isAfter=false, color=null) {
+    const valColor = color || (isAfter ? '#FF7B72' : '#56D364');
+    const cls = changed ? 'diff-chg' : '';
+    return `<div class="${cls}"><span class="diff-k">${k.padEnd(12,' ')} : </span>`+
+           `<span style="color:${valColor}">${escHtml(v)}</span></div>`;
+  }
+
+  /* ═══ ATTACK TOGGLE ═══ */
+  function toggleAttack() {
+    if (!forgeReady) { alert('Selesaikan Fase 4 (Forge) terlebih dahulu.'); return; }
+    fetch('/api/attack-toggle', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({active: !attackOn})
+    }).then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') { alert(d.message); return; }
+      attackOn = d.attack_active;
+      updateAtkUI(attackOn);
+    });
+  }
+
+  function updateAtkUI(on) {
+    const track  = document.getElementById('atk-track');
+    const lbl    = document.getElementById('atk-lbl');
+    const box    = document.getElementById('atk-box');
+    const desc   = document.getElementById('atk-desc');
+    const detail = document.getElementById('atk-detail');
+    const live   = document.getElementById('live-panel');
+
+    track.classList.toggle('on', on);
+    lbl.classList.toggle('on', on);
+    lbl.textContent = on ? 'ON' : 'OFF';
+    box.classList.toggle('active', on);
+
+    if (on) {
+      desc.textContent = '⚡ Aktif — setiap QRIS baru langsung di-forge!';
+      desc.style.color = '#FF7B72';
+      detail.innerHTML = '<span style="color:#FF7B72;font-weight:700;">💀 LIVE: QRIS palsu aktif</span><br>'+
+        '<span style="color:#7D8590;font-size:11px;">Generate QRIS di kasir → otomatis di-intercept & dipalsukan</span>';
+      document.getElementById('atk-badge').textContent = 'ATTACK ACTIVE';
+      phase(4,'active');
+      live.classList.remove('hidden');
+    } else {
+      desc.textContent = 'Serangan dijeda — kasir tampilkan QRIS normal';
+      desc.style.color = '#7D8590';
+      detail.innerHTML = '<span style="color:#E3B341;">⏸ Dijeda</span><br>'+
+        '<span style="color:#7D8590;font-size:11px;">Kasir kembali menampilkan QRIS asli</span>';
+      document.getElementById('atk-badge').textContent = 'STANDBY';
+      if (forgeReady) phase(4,'done');
+    }
+  }
+
+  /* ═══ POLL ═══ */
+  function pollState() {
+    fetch('/api/state').then(r=>r.json()).then(d=>{
+      // Sync toggle
+      if (attackOn !== d.attack_active) { attackOn = d.attack_active; updateAtkUI(attackOn); }
+
+      // Auto-detect phases
+      if (d.has_original_qris) {
+        phase(1,'done');
+        if (d.sniffed_count > 0) loadPackets();
+      }
+
+      // Log
+      renderLog(d.attack_log.filter(l=>l.entity==='ATTACKER'), 'terminal-attacker');
+
+      // Money
+      const stolen = d.balance_attacker || 0;
+      document.getElementById('stolen-amt').textContent = formatRp(stolen);
+      if (stolen > 0) {
+        document.getElementById('atk-txlog').innerHTML =
+          `<span style="color:#FF7B72;font-weight:700;">💰 ${formatRp(stolen)}</span><br>`+
+          `<span style="color:#484F58;font-size:11px;">ID.KOPIGMBR4UD.666</span>`;
+      }
+
+      document.getElementById('sniff-badge').textContent = (d.sniffed_count||0)+' paket';
+
+      // Live payload panel
+      if (d.attack_active && d.forge_diff) {
+        const f = d.forge_diff.forged;
+        const lp = document.getElementById('live-payload');
+        if (lp) lp.innerHTML =
+          row('merchant_id',  f.merchant_id, true, true) +
+          row('display_amt',  'Rp '+f.display_amount.toLocaleString('id-ID'), false, false, '#56D364') +
+          (f.multiplier>1 ? row('actual_amt', 'Rp '+f.actual_amount.toLocaleString('id-ID')+' ('+f.multiplier+'×!)', true, true) : '') +
+          row('signature',    f.signature, true, true) +
+          `<div style="margin-top:4px;"><span class="diff-k">payload     : </span>`+
+          `<span style="color:#484F58;font-size:10px;">${escHtml(f.payload)}</span></div>`;
+      }
+
+      // If forge_diff is new after attack toggle, render it
+      if (d.forge_diff && !document.getElementById('diff-panel').classList.contains('hidden') === false) {
+        renderDiff(d.forge_diff);
+      }
+    });
+  }
+
+  setInterval(pollState, 2000);
+  fetch('/api/sniff-packets').then(r=>r.json()).then(d=>{ if (d.count>0) loadPackets(); });
+  // Sync config from server on load
+  fetch('/api/state').then(r=>r.json()).then(d=>{
+    if (d.attack_config) {
+      const cfg = d.attack_config;
+      if (cfg.amount_multiplier) setMult(cfg.amount_multiplier);
+    }
+    pollState();
+  });
+</script>
+{% endblock %}
