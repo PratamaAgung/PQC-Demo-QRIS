@@ -13,10 +13,10 @@ python3 app.py
 ```
 
 Buka browser dan akses:
-- **Dashboard** : http://localhost:5050
-- **Kasir**     : http://localhost:5050/kasir
-- **Attacker**  : http://localhost:5050/attacker
-- **M-Banking** : http://localhost:5050/mbanking
+- **Dashboard** : http://0.0.0.0:5050
+- **Kasir**     : http://0.0.0.0:5050/kasir
+- **Attacker**  : http://0.0.0.0:5050/attacker
+- **M-Banking** : http://0.0.0.0:5050/mbanking
 
 ## Alur Demo (Step by Step)
 
