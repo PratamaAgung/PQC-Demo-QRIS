@@ -907,19 +907,49 @@ def kasir_qris():
     })
 
 if __name__ == "__main__":
+    import ssl
+    import os
+    import subprocess
+
     # Auto-inisialisasi key saat startup
     keys = generate_rsa_52bit()
     state["rsa_n"] = keys["n"]
     state["rsa_e"] = keys["e"]
     state["rsa_d"] = keys["d"]
+
+    # ── Generate self-signed certificate jika belum ada ──────────────────
+    cert_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "certs")
+    cert_file = os.path.join(cert_dir, "cert.pem")
+    key_file = os.path.join(cert_dir, "key.pem")
+
+    if not os.path.exists(cert_file) or not os.path.exists(key_file):
+        os.makedirs(cert_dir, exist_ok=True)
+        print("[*] Generating self-signed certificate...")
+        subprocess.run([
+            "openssl", "req", "-x509", "-newkey", "rsa:2048",
+            "-keyout", key_file, "-out", cert_file,
+            "-days", "365", "-nodes",
+            "-subj", "/CN=QRIS-PQC-Demo/O=Telkom-SBDP/C=ID",
+            "-addext", "subjectAltName=IP:0.0.0.0,IP:127.0.0.1,DNS:localhost"
+        ], check=True)
+        print(f"[✓] Certificate saved to {cert_dir}/")
+
     print("=" * 60)
-    print("  QRIS Quantum Threat Demo - PQC Awareness")
+    print("  QRIS Quantum Threat Demo - PQC Awareness (HTTPS)")
     print("=" * 60)
     print(f"  RSA Keypair: n={keys['n']} ({keys['n'].bit_length()}-bit)")
     print("  Buka browser dan akses:")
-    print("  ► Dashboard  : http://0.0.0.0:5050")
-    print("  ► Kasir      : http://0.0.0.0:5050/kasir")
-    print("  ► Attacker   : http://0.0.0.0:5050/attacker")
-    print("  ► M-Banking  : http://0.0.0.0:5050/mbanking")
+    print("  ► Dashboard  : https://0.0.0.0:5050")
+    print("  ► Kasir      : https://0.0.0.0:5050/kasir")
+    print("  ► Attacker   : https://0.0.0.0:5050/attacker")
+    print("  ► M-Banking  : https://0.0.0.0:5050/mbanking")
+    print("")
+    print("  ⚠️  Browser akan menampilkan warning 'Not Secure'.")
+    print("     Klik 'Advanced' → 'Proceed' untuk melanjutkan.")
+    print("     Di Safari iOS: Settings → masukkan trust certificate.")
     print("=" * 60)
-    app.run(debug=True, port=5050, host="0.0.0.0")
+
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_ctx.load_cert_chain(cert_file, key_file)
+
+    app.run(debug=True, port=5050, host="0.0.0.0", ssl_context=(cert_file, key_file))

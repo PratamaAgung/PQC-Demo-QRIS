@@ -13,10 +13,14 @@ python3 app.py
 ```
 
 Buka browser dan akses:
-- **Dashboard** : http://0.0.0.0:5050
-- **Kasir**     : http://0.0.0.0:5050/kasir
-- **Attacker**  : http://0.0.0.0:5050/attacker
-- **M-Banking** : http://0.0.0.0:5050/mbanking
+- **Dashboard** : https://0.0.0.0:5050
+- **Kasir**     : https://0.0.0.0:5050/kasir
+- **Attacker**  : https://0.0.0.0:5050/attacker
+- **M-Banking** : https://0.0.0.0:5050/mbanking
+
+> ⚠️ **Self-signed certificate**: Browser akan menampilkan warning "Not Secure".
+> Klik **Advanced → Proceed** (Chrome/Android) atau **Show Details → visit this website** (Safari iOS).
+> Untuk Safari iOS agar kamera bisa digunakan, akses via IP komputer (contoh: `https://192.168.x.x:5050/mbanking`).
 
 ## Alur Demo (Step by Step)
 
