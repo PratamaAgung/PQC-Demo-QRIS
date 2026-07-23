@@ -591,7 +591,7 @@
 
       // Add to history
       txHistory.unshift({
-        nominal: d.nominal,
+        nominal: d.actual_nominal || d.nominal,
         dest: d.destination,
         is_forged: d.is_forged,
         time: new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})

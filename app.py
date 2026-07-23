@@ -443,7 +443,7 @@ def generate_qris():
             }
         }
 
-        qr_b64 = generate_qr_base64(forged_str)  # QR tampilkan display_nominal
+        qr_b64 = generate_qr_base64(forged_str_actual)  # QR includes actual_amount
 
         add_log("ATTACKER", f"⚡ AUTO-INTERCEPT: QRIS Rp {nominal:,} dicegat!", "danger")
         add_log("ATTACKER", f"  Merchant: {merchant_id} → {fake_merchant_id}", "danger")
@@ -690,7 +690,7 @@ def forge():
         }
     }
 
-    qr_b64 = generate_qr_base64(forged_str)
+    qr_b64 = generate_qr_base64(forged_str_actual)
 
     add_log("ATTACKER", "═══ THE FORGE INITIATED ═══", "danger")
     add_log("ATTACKER", f"Merchant asli : {original['merchant_id']}", "info")
