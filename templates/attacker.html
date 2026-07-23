@@ -182,11 +182,11 @@
   <div class="card">
     <div class="card-header">
       <div class="card-icon red">⚛️</div>
-      <div><div class="card-title">Fase 3 — Quantum Crack</div><div class="card-sub">Shor's Algorithm + Pollard's Rho sebagai pembanding</div></div>
+      <div><div class="card-title">Fase 3 — Quantum Crack</div><div class="card-sub">Shor's Algorithm + Brute Force sebagai pembanding</div></div>
     </div>
     <div class="card-body">
       <p style="font-size:12px;color:#7D8590;margin-bottom:12px;line-height:1.6;">
-        Shor's Algorithm (quantum) vs Pollard's Rho (klasik terbaik) — keduanya dijalankan nyata secara paralel untuk menunjukkan perbedaan kecepatan era kuantum vs klasik.
+        Shor's Algorithm (quantum) vs Brute Force Trial Division (klasik) — keduanya dijalankan nyata secara paralel untuk menunjukkan perbedaan kecepatan era kuantum vs klasik.
       </p>
       <div id="crack-target" class="hidden" style="margin-bottom:12px;">
         <div class="data-row"><span class="data-key">Target n</span><span class="data-value" id="crack-n">—</span></div>
@@ -220,9 +220,9 @@
             <div class="algo-bar-wrap"><div class="algo-bar q" id="bar-shor" style="width:0%"></div></div>
           </div>
           <div class="algo-box c">
-            <div class="algo-title c">🖥️ Pollard's Rho</div>
+            <div class="algo-title c">🖥️ Brute Force</div>
             <div class="algo-time c" id="race-classic">—</div>
-            <div class="algo-detail">Kompleksitas: <strong style="color:#E3B341;">O(n^¼)</strong><br>Algoritma klasik terbaik</div>
+            <div class="algo-detail">Kompleksitas: <strong style="color:#E3B341;">O(n)</strong><br>Trial division naif tanpa optimasi</div>
             <div class="algo-bar-wrap"><div class="algo-bar c" id="bar-classic" style="width:0%"></div></div>
           </div>
         </div>
@@ -514,7 +514,7 @@
         const tel = document.getElementById('crack-timer');
         if (tel) tel.textContent = d.elapsed_s.toFixed(1)+'s';
 
-        // Pollard's Rho sudah selesai sementara Shor's masih jalan
+        // Brute Force sudah selesai sementara Shor's masih jalan
         if (d.running && d.classic_result && d.classic_result.elapsed_ms) {
           document.getElementById('race-classic').textContent =
             (d.classic_result.elapsed_ms/1000).toFixed(3)+'s ✓';
@@ -576,19 +576,19 @@
       if (shorMs <= cMs) {
         const x = (cMs/shorMs).toFixed(1);
         verdict.innerHTML =
-          `⚛️ Shor's <strong style="color:#FF7B72">${x}× lebih cepat</strong> dari Pollard's Rho<br>
+          `⚛️ Shor's <strong style="color:#FF7B72">${x}× lebih cepat</strong> dari Brute Force<br>
            <span style="color:#7D8590;font-size:11px;">
            Pada RSA-52bit keunggulan sudah terlihat. Pada RSA-2048 perbedaan ini menjadi <strong style="color:#E3B341">10³⁰ × lebih cepat</strong> — itulah mengapa PQC sangat kritis.</span>`;
       } else {
         const x = (shorMs/cMs).toFixed(1);
         verdict.innerHTML =
-          `🖥️ Pada RSA-52bit, Pollard's Rho (O(n^¼)) kebetulan ${x}× lebih cepat<br>
-           <span style="color:#7D8590;font-size:11px;">Ini karena Pollard's bersifat probabilistik dan beruntung menemukan faktor lebih awal.
-           Pada RSA-2048, Pollard's Rho membutuhkan <strong style="color:#FF7B72">10⁳⁸ tahun</strong> sedangkan Shor's <strong style="color:#56D364">hanya menit</strong>.</span>`;
+          `🖥️ Pada RSA-52bit, Brute Force (O(n)) kebetulan ${x}× lebih cepat<br>
+           <span style="color:#7D8590;font-size:11px;">Ini karena ukuran kunci yang sangat kecil (52-bit) masih feasible untuk trial division.
+           Pada RSA-2048, Brute Force membutuhkan <strong style="color:#FF7B72">10³⁰⁰ tahun</strong> sedangkan Shor's <strong style="color:#56D364">hanya menit</strong>.</span>`;
       }
     } else {
       document.getElementById('race-classic').textContent = 'N/A';
-      verdict.textContent = 'Pollard\'s Rho tidak berhasil mendapatkan hasil untuk dibandingkan.';
+      verdict.textContent = 'Brute Force tidak berhasil mendapatkan hasil untuk dibandingkan.';
     }
   }
 

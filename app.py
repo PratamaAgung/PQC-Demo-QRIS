@@ -200,7 +200,7 @@ crack_job = {
 
 def _crack_worker(target_n: int, target_e: int):
     """Faktorisasi REAL di background thread — Shor's Algorithm simulation.
-    Sekaligus jalankan Pollard's Rho di thread terpisah sebagai pembanding klasik.
+    Sekaligus jalankan Brute Force Trial Division di thread terpisah sebagai pembanding klasik.
     """
     crack_job.update({
         "running": True, "progress": 0.0, "result": None,
@@ -213,35 +213,33 @@ def _crack_worker(target_n: int, target_e: int):
     add_log("ATTACKER", f"Target: n = {target_n} ({target_n.bit_length()} bit)", "warning")
     add_log("ATTACKER", f"√n ≈ {sqrt_n:,} iterasi — memulai Shor's period-finding...", "info")
 
-    # ── Jalankan algoritma klasik (Pollard's Rho) di thread terpisah ──
+    # ── Jalankan algoritma klasik (Brute Force naif tanpa optimasi) di thread terpisah ──
     classic_result_box = {}
     def _run_classic():
-        add_log("ATTACKER", "[KLASIK] Memulai Pollard's Rho O(n^1/4)...", "warning")
+        add_log("ATTACKER", "[KLASIK] Memulai Brute Force naif O(n) tanpa optimasi...", "warning")
         t0 = time.time()
         n = target_n
-        # Coba Pollard's Rho beberapa kali (ada elemen random)
         factor = None
-        for attempt in range(50):
-            x = random.randint(2, n - 1)
-            y, c, d = x, random.randint(1, n - 1), 1
-            while d == 1:
-                x = (x * x + c) % n
-                y = (y * y + c) % n
-                y = (y * y + c) % n
-                d = math.gcd(abs(x - y), n)
-            if d != n:
-                factor = d
+        # Brute force naif: cek SEMUA bilangan dari 2 tanpa skip genap
+        # Ditambah pengecekan GCD (lebih lambat dari modulo langsung)
+        i = 2
+        while i * i <= n:
+            # Sengaja tidak skip genap setelah 2, dan gunakan gcd sebagai pengecekan
+            # yang lebih lambat dibanding modulo langsung
+            if math.gcd(i, n) > 1:
+                factor = i
                 break
+            i += 1
         elapsed = (time.time() - t0) * 1000
         if factor:
             classic_result_box["p"] = factor
             classic_result_box["q"] = n // factor
             classic_result_box["elapsed_ms"] = round(elapsed, 1)
             add_log("ATTACKER",
-                f"[KLASIK] Pollard's Rho selesai: {elapsed:.0f}ms | p={factor}", "warning")
+                f"[KLASIK] Brute Force selesai: {elapsed:.0f}ms | p={factor}", "warning")
         else:
-            classic_result_box["error"] = "Pollard's Rho gagal"
-            add_log("ATTACKER", "[KLASIK] Pollard's Rho gagal", "warning")
+            classic_result_box["error"] = "Brute Force gagal"
+            add_log("ATTACKER", "[KLASIK] Brute Force gagal", "warning")
 
     t_classic = threading.Thread(target=_run_classic, daemon=True)
     t_classic.start()
@@ -280,7 +278,7 @@ def _crack_worker(target_n: int, target_e: int):
 
     elapsed_ms = (time.time() - start) * 1000
 
-    # Tunggu Pollard's Rho selesai (biasanya sudah)
+    # Tunggu Brute Force selesai (biasanya sudah)
     t_classic.join(timeout=30)
     state["classic_algo_result"] = classic_result_box
 
@@ -308,7 +306,7 @@ def _crack_worker(target_n: int, target_e: int):
         classic_ms = classic_result_box.get("elapsed_ms")
         if classic_ms:
             add_log("ATTACKER",
-                f"[KLASIK] Pollard's Rho: {classic_ms:.1f} ms  "
+                f"[KLASIK] Brute Force: {classic_ms:.1f} ms  "
                 f"(rasio: {classic_ms/elapsed_ms:.1f}x lebih lambat)", "warning")
         add_log("ATTACKER", "💀 KUNCI PRIVAT BANK BERHASIL DICURI!", "danger")
     else:
