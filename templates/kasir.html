@@ -182,9 +182,9 @@
 
           <!-- Action buttons -->
           <div class="qr-action-row" id="qr-actions" style="display:none;">
-            <a href="/api/qris-png" class="btn-icon download" id="btn-download" download>
+            <button class="btn-icon download" id="btn-download" onclick="downloadQR()">
               ⬇️ Download QR
-            </a>
+            </button>
             <button class="btn-icon download" onclick="generateQRIS()" id="btn-regen">
               🔄 Regenerate
             </button>
@@ -212,6 +212,18 @@
 <script>
   function setNominal(val) {
     document.getElementById('input-nominal').value = val;
+  }
+
+  function downloadQR() {
+    fetch('/api/qris-png').then(r=>r.json()).then(d=>{
+      if (d.status !== 'ok') return;
+      const link = document.createElement('a');
+      link.href = 'data:image/png;base64,' + d.image;
+      link.download = d.filename || 'QRIS.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
   }
 
   function generateQRIS() {

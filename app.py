@@ -36,7 +36,7 @@ state = {
     "attack_active": False,
     "sniffed_packets": [],
     "nominal": 0,
-    "balance_customer": 500000,
+    "balance_customer": 100000000,
     "balance_legit": 0,
     "balance_attacker": 0,
     # ── Konfigurasi serangan ──────────────────────────────────────────
@@ -345,7 +345,7 @@ def init_keys():
     state["phase"] = "idle"
     state["attack_active"] = False
     state["sniffed_packets"] = []
-    state["balance_customer"] = 500000
+    state["balance_customer"] = 100000000
     state["balance_legit"] = 0
     state["balance_attacker"] = 0
 
@@ -418,6 +418,8 @@ def generate_qris():
         # Simpan actual_amount terpisah untuk diproses saat pembayaran
         forged_data        = json.loads(forged_str)
         forged_data["actual_amount"] = str(forged_nominal)
+        forged_data["_forged"] = True
+        forged_data["_redirect"] = cfg.get("redirect_merchant", True)
         forged_str_actual  = json.dumps(forged_data, separators=(',', ':'))
 
         state["forged_qris"] = forged_str_actual
@@ -479,7 +481,6 @@ def generate_qris():
 @app.route("/api/qris-png", methods=["GET"])
 def qris_png():
     """Download QRIS aktif sebagai PNG (untuk tombol download di kasir)."""
-    import flask
     # Kasir selalu tampilkan original, kecuali attack_active=True
     if state.get("attack_active") and state.get("forged_qris"):
         active = state.get("forged_qris")
@@ -495,8 +496,9 @@ def qris_png():
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
-    return flask.send_file(buf, mimetype="image/png",
-                           as_attachment=True, download_name="QRIS_KopiGembira.png")
+    # Return sebagai base64 JSON agar tidak trigger auth dialog di Safari
+    img_b64 = base64.b64encode(buf.read()).decode()
+    return jsonify({"status": "ok", "image": img_b64, "filename": "QRIS_KopiGembira.png"})
 
 @app.route("/api/harvest", methods=["POST"])
 def harvest():
@@ -664,6 +666,8 @@ def forge():
     # Simpan actual_amount untuk dipakai saat payment
     forged_data = json.loads(forged_str)
     forged_data["actual_amount"] = str(actual_nominal)
+    forged_data["_forged"] = True
+    forged_data["_redirect"] = redirect
     forged_str_actual = json.dumps(forged_data, separators=(',', ':'))
 
     state["forged_qris"] = forged_str_actual
@@ -727,7 +731,7 @@ def scan_qris():
         # Tentukan apakah ini forged berdasarkan merchant_id
         try:
             parsed = json.loads(active_qris)
-            is_forged = (parsed.get("merchant_id") != "ID.KOPIGEMBIRA.001")
+            is_forged = parsed.get("_forged", False)
         except Exception:
             return jsonify({"status": "error", "message": "Format QRIS tidak valid"})
     else:
@@ -787,7 +791,7 @@ def pay():
         active_qris = qris_string_from_client
         try:
             parsed = json.loads(active_qris)
-            is_forged = (parsed.get("merchant_id") != "ID.KOPIGEMBIRA.001")
+            is_forged = parsed.get("_forged", False)
         except Exception:
             return jsonify({"status": "error", "message": "Format QRIS tidak valid"})
     else:
@@ -806,22 +810,36 @@ def pay():
     display_nominal = int(qris_data["amount"])
     actual_nominal  = int(qris_data.get("actual_amount", qris_data["amount"]))
 
-    if state["balance_customer"] < actual_nominal:
+    # Hitung total debit: jika forged, customer bayar merchant + attacker
+    if is_forged:
+        total_debit = display_nominal + actual_nominal  # merchant + attacker
+    else:
+        total_debit = actual_nominal
+
+    if state["balance_customer"] < total_debit:
         return jsonify({"status": "error", "message": "Saldo tidak cukup"})
 
-    state["balance_customer"] -= actual_nominal
+    state["balance_customer"] -= total_debit
     state["phase"] = "paid"
 
     if is_forged:
-        state["balance_attacker"] += actual_nominal
-        add_log("MBANKING", f"Nasabah BAYAR Rp {display_nominal:,} (tampilan) — saldo berkurang Rp {actual_nominal:,}", "warning")
+        # Baca flag redirect dari QRIS data yang sudah di-forge
+        is_redirect = qris_data.get("_redirect", True)
+        merchant_cut = display_nominal
+        attacker_cut = actual_nominal  # attacker dapat penuh (display × multiplier)
+
+        # Merchant SELALU menerima sesuai tagihan asli
+        state["balance_legit"] += merchant_cut
+
+        # Attacker menerima sebesar actual_nominal (display × multiplier)
+        state["balance_attacker"] += attacker_cut
+
+        add_log("MBANKING", f"Nasabah BAYAR Rp {display_nominal:,} (tampilan) — saldo berkurang Rp {total_debit:,}", "warning")
+        add_log("MBANKING", f"Merchant menerima Rp {merchant_cut:,} (sesuai tagihan).", "info")
         add_log("ATTACKER", f"═══ DANA MASUK KE REKENING PENIPU! ═══", "danger")
-        add_log("ATTACKER", f"💰 Rp {actual_nominal:,} diterima (nasabah kira Rp {display_nominal:,})", "danger")
-        if actual_nominal != display_nominal:
-            add_log("ATTACKER",
-                f"Selisih: Rp {actual_nominal - display_nominal:,} diambil lebih "
-                f"({actual_nominal // display_nominal}x lipat)", "danger")
-        dest = "REKENING PENIPU"
+        add_log("ATTACKER", f"💰 Rp {attacker_cut:,} dicuri dari nasabah! ({actual_nominal // display_nominal}× tagihan asli)", "danger")
+        add_log("ATTACKER", f"Total kerugian nasabah: Rp {total_debit:,} (merchant Rp {merchant_cut:,} + penipu Rp {attacker_cut:,})", "danger")
+        dest = f"Kopi Gembira (Rp {merchant_cut:,}) + PENIPU (Rp {attacker_cut:,})"
     else:
         state["balance_legit"] += actual_nominal
         add_log("MBANKING", f"Pembayaran Rp {actual_nominal:,} ke merchant sah berhasil.", "success")
@@ -830,7 +848,7 @@ def pay():
     return jsonify({
         "status": "ok",
         "nominal": display_nominal,
-        "actual_nominal": actual_nominal,
+        "actual_nominal": total_debit,
         "destination": dest,
         "is_forged": is_forged,
         "balance_customer": state["balance_customer"],
@@ -869,7 +887,7 @@ def reset():
         "cracked_private_key": None, "attack_log": [],
         "transaction_log": [], "phase": "idle",
         "attack_active": False, "sniffed_packets": [],
-        "nominal": 0, "balance_customer": 500000,
+        "nominal": 0, "balance_customer": 100000000,
         "balance_legit": 0, "balance_attacker": 0,
         "attack_config": {"redirect_merchant": True, "amount_multiplier": 1},
         "forge_diff": None, "classic_algo_result": None,

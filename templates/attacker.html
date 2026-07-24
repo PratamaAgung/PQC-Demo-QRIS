@@ -267,8 +267,10 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="mult-btn active" id="mult-1" onclick="setMult(1)">1× normal</button>
             <button class="mult-btn" id="mult-2" onclick="setMult(2)">2× lipat</button>
-            <button class="mult-btn" id="mult-3" onclick="setMult(3)">3× lipat</button>
             <button class="mult-btn" id="mult-5" onclick="setMult(5)">5× lipat</button>
+            <button class="mult-btn" id="mult-10" onclick="setMult(10)">10× lipat</button>
+            <button class="mult-btn" id="mult-50" onclick="setMult(50)">50× lipat</button>
+            <button class="mult-btn" id="mult-100" onclick="setMult(100)">100× lipat</button>
           </div>
           <div style="font-size:11px;color:#484F58;margin-top:6px;" id="mult-desc">
             Tidak ada manipulasi nominal.
@@ -405,7 +407,7 @@
 
   function setMult(v) {
     curMult = v;
-    [1,2,3,5].forEach(x => {
+    [1,2,5,10,50,100].forEach(x => {
       const b = document.getElementById('mult-'+x);
       if (b) b.className = 'mult-btn'+(x===v?' active':'');
     });
@@ -603,9 +605,11 @@
       }
       forgeReady = true;
       phase(4,'active');
-      btn.innerHTML = '✅ Forged — Siap Deploy';
+      // Re-enable button so user can re-forge with different settings
+      btn.disabled = false;
+      btn.innerHTML = '🪄 Re-Forge QRIS (Update Config)';
       document.getElementById('atk-detail').innerHTML =
-        '<span style="color:#E3B341;">✅ QRIS palsu siap.</span> Aktifkan toggle untuk mulai serangan.';
+        '<span style="color:#E3B341;">✅ QRIS palsu siap.</span> Aktifkan toggle untuk mulai serangan. Ubah config lalu klik Re-Forge untuk update.';
 
       // Fetch diff dari server
       fetch('/api/state').then(r=>r.json()).then(s=>{
